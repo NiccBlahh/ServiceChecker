@@ -89,20 +89,20 @@ $Keyboard = Get-PnpDevice -Class Keyboard -Status OK -ErrorAction SilentlyContin
 $Mouse = Get-PnpDevice -Class Mouse -Status OK -ErrorAction SilentlyContinue | Select-Object -First 1
 $UsbStorage = Get-PnpDevice -Class USBDevice -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -like "*Mass*" -or $_.InstanceId -like "*USBSTOR*" }
 
-# Backward compatible display logic for standard Windows PowerShell
-if ($Keyboard) {
+# Safe logic for all standard versions of Windows PowerShell
+if ($null -ne $Keyboard) {
     Write-Item -Label "USB Input [Keyboard]" -Value "$($Keyboard.FriendlyName) [Connected]" -ValueColor "Green"
 } else {
     Write-Item -Label "USB Input [Keyboard]" -Value "None Detected" -ValueColor "Red"
 }
 
-if ($Mouse) {
+if ($null -ne $Mouse) {
     Write-Item -Label "USB Input [Mouse]" -Value "$($Mouse.FriendlyName) [Connected]" -ValueColor "Green"
 } else {
     Write-Item -Label "USB Input [Mouse]" -Value "None Detected" -ValueColor "Red"
 }
 
-if ($UsbStorage) {
+if ($null -ne $UsbStorage) {
     Write-Item -Label "Removable USB Mass Storage" -Value "$($UsbStorage.Count) Mounted Devices" -ValueColor "Yellow"
 } else {
     Write-Item -Label "Removable USB Mass Storage" -Value "No active mass storage detected" -ValueColor "White"
@@ -124,14 +124,20 @@ $TargetServices = @(
 
 foreach ($Svc in $TargetServices) {
     $RealSvc = Get-Service -Name $Svc.Name -ErrorAction SilentlyContinue
-    $Status = if ($RealSvc) { $RealSvc.Status.ToString() } else { "Missing/Disabled" }
+    if ($null -ne $RealSvc) {
+        $Status = $RealSvc.Status.ToString()
+    } else {
+        $Status = "Missing/Disabled"
+    }
     Write-SvcRow -Svc $Svc.Name -Desc $Svc.Desc -Status $Status
 }
 
 # SECTION: REGISTRY
 Write-Section -Title "REGISTRY POLICY"
 $PrefetchStatus = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name EnablePrefetcher -ErrorAction SilentlyContinue).EnablePrefetcher
-$PrefetchText = if ($PrefetchStatus -eq 3) { "Enabled (App & Boot)" } elseif ($PrefetchStatus -eq 0) { "Disabled" } else { "Enabled ($PrefetchStatus)" }
+if ($PrefetchStatus -eq 3) { $PrefetchText = "Enabled (App & Boot)" }
+elseif ($PrefetchStatus -eq 0) { $PrefetchText = "Disabled" }
+else { $PrefetchText = "Enabled ($PrefetchStatus)" }
 
 Write-Item -Label "CMD Execution" -Value "Available" -ValueColor "Green"
 Write-Item -Label "Prefetch Global Status" -Value $PrefetchText -ValueColor "Green"
@@ -148,7 +154,7 @@ if (Test-Path "C:\Windows\Prefetch") {
 # SECTION: RECYCLE BIN
 Write-Section -Title "RECYCLE BIN"
 $BinItems = Get-ChildItem -Path "C:\`$Recycle.Bin" -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "`$I*" }
-if ($BinItems) { $BinCount = $BinItems.Count } else { $BinCount = 0 }
+if ($null -ne $BinItems) { $BinCount = $BinItems.Count } else { $BinCount = 0 }
 
 if ($BinCount -eq 0) {
     Write-Item -Label "Recycle Bin State" -Value "Empty / No historical records" -ValueColor "White"
