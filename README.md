@@ -1,4 +1,4 @@
-# 📟 Retro CLI Windows System Diagnostic Tool
+# 📟 Service Checker
 
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?logo=powershell&style=flat-square)](https://microsoft.com/powershell)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?style=flat-square)](https://www.microsoft.com/windows)
@@ -45,3 +45,5 @@ Open an elevated PowerShell console and paste the following command to download 
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod '[https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1](https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1)')"
+
+Forge the code from ** Service Checker ** @praiselily
