@@ -57,8 +57,8 @@ $FreeMem = [math]::round($Mem.FreePhysicalMemory / 1MB, 1)
 $UsedMem = [math]::round($TotalMem - $FreeMem, 1)
 $MemPercent = [math]::round(($UsedMem / $TotalMem) * 100, 0)
 
-# Dynamic Grab for Wildcard/Scoped Services like CDPUserSvc_xxxxx
-$CdpUserRealName = (Get-Service -Name "CDPUserSvc_*" -ErrorAction SilentlyContinue | Select-Object -First 1).Name
+# Dynamic Grab for Wildcard/Scoped Services like CDPUserSvc_xxxxx via .NET Process controller
+$CdpUserRealName = ([System.ServiceProcess.ServiceController]::GetServices() | Where-Object { $_.ServiceName -like "CDPUserSvc_*" } | Select-Object -First 1).ServiceName
 if (-not $CdpUserRealName) { $CdpUserRealName = "CDPUserSvc" }
 
 # =============================================================================
@@ -129,15 +129,17 @@ $TargetServices = @(
     @{Name="DcomLaunch"; Desc="DCOM Server Process Launcher"}
 )
 
+# Grab all active services via .NET engine to bypass common system pipeline bottlenecks
+$AllSystemServices = [System.ServiceProcess.ServiceController]::GetServices()
+
 foreach ($Svc in $TargetServices) {
-    $RealSvc = Get-Service -Name $Svc.Name -ErrorAction SilentlyContinue
+    $RealSvc = $AllSystemServices | Where-Object { $_.ServiceName -eq $Svc.Name }
     if ($null -ne $RealSvc) {
         $Status = $RealSvc.Status.ToString()
     } else {
         $Status = "Missing/Disabled"
     }
     
-    # Visual update: map internal service names to nicer looking UI strings
     $DisplayName = $Svc.Name
     if ($Svc.Name -eq "Schedule") { $DisplayName = "Scheduler" }
     if ($Svc.Name -eq "WSearch") { $DisplayName = "SearchIndexer" }
@@ -175,7 +177,7 @@ if ($null -ne $JumpListReg -and $JumpListReg.Start_TrackDocs -eq 0) {
 }
 
 # BAM Inheritance Status
-$BamService = Get-Service -Name "Bam" -ErrorAction SilentlyContinue
+$BamService = $AllSystemServices | Where-Object { $_.ServiceName -eq "Bam" }
 if ($null -ne $BamService -and $BamService.Status -eq "Running") {
     $BamInheritText = "Enforced / Intact"
     $BamInheritColor = "Green"
@@ -203,7 +205,6 @@ Write-Section -Title "PREFETCH DIRECTORY STATUS"
 if (Test-Path "C:\Windows\Prefetch") {
     $PfCount = (Get-ChildItem -Path "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue).Count
     
-    # Query for files matching hidden property types specifically
     $HiddenPfCount = (Get-ChildItem -Path "C:\Windows\Prefetch" -Filter "*.pf" -Force -ErrorAction SilentlyContinue | Where-Object { $_.Attributes -match "Hidden" }).Count
     if ($null -eq $HiddenPfCount) { $HiddenPfCount = 0 }
     
