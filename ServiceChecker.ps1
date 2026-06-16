@@ -27,7 +27,8 @@ function Write-SvcRow {
     param([string]$Svc, [string]$Desc, [string]$Status)
     $SvcPad = "    $Svc".PadRight(20)
     $DescPad = $Desc.PadRight(40)
-    $Color = if ($Status -eq "Running" -or $Status -eq "Enabled") { "Green" } else { "Red" }
+    # Color update: Running/Enabled turns Cyan, otherwise Red
+    $Color = if ($Status -eq "Running" -or $Status -eq "Enabled") { "Cyan" } else { "Red" }
     Write-Host $SvcPad -ForegroundColor DarkGreen -NoNewline
     Write-Host "   " -NoNewline
     Write-Host $DescPad -ForegroundColor White -NoNewline
