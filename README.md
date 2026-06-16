@@ -43,7 +43,9 @@ The script evaluates the security and operational posture of these key Windows c
 ### Execution
 Open an elevated PowerShell console and paste the following command to download and execute the latest version directly from the repository in memory:
 
-```powershell
+```powershell```
 powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod '[https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1](https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1)')"
 
-Forge the code from ** Service Checker ** @praiselily
+
+@praiselily , forge the code from that Service Checker
+
