@@ -110,15 +110,17 @@ if ($null -ne $UsbStorage) {
 # SECTION: SERVICE STATUS
 Write-Section -Title "SERVICE STATUS"
 $TargetServices = @(
-    @{Name="SysMain"; Desc="System Main Performance Service"}
     @{Name="PcaSvc"; Desc="Program Compatibility Assistant"}
+    @{Name="DiagTrack"; Desc="Connected User Experiences/Telemetry"}
+    @{Name="Dnscache"; Desc="DNS Client Cache Service"}
+    @{Name="DcomLaunch"; Desc="DCOM Server Process Launcher"}
+    @{Name="SysMain"; Desc="System Main Performance Service"}
     @{Name="DPS"; Desc="Diagnostic Policy Service"}
     @{Name="EventLog"; Desc="Windows Event Log"}
     @{Name="Schedule"; Desc="Task Scheduler"}
     @{Name="Dusmsvc"; Desc="Data Usage Service"}
     @{Name="Appinfo"; Desc="Application Information"}
     @{Name="CDPSvc"; Desc="Connected Devices Platform Service"}
-    @{Name="DiagTrack"; Desc="Connected User Experiences and Telemetry"}
     @{Name="wsearch"; Desc="Windows Search"}
 )
 
@@ -142,11 +144,18 @@ else { $PrefetchText = "Enabled ($PrefetchStatus)" }
 # Activities Cache Verification
 $CDPPath = "$env:USERPROFILE\AppData\Local\ConnectedDevicesPlatform"
 $ActivitiesDb = Get-ChildItem -Path $CDPPath -Filter "ActivitiesCache.db" -Recurse -ErrorAction SilentlyContinue
-if ($ActivitiesDb) { $ActivitiesText = "Enabled" } else { $ActivitiesText = "Disabled / Missing" }
+
+if ($ActivitiesDb) { 
+    $ActivitiesText = "Enabled"
+    $ActivitiesColor = "Green"
+} else { 
+    $ActivitiesText = "Disabled / Missing" 
+    $ActivitiesColor = "Red"
+}
 
 Write-Item -Label "CMD Execution" -Value "Available" -ValueColor "Green"
 Write-Item -Label "Prefetch Global Status" -Value $PrefetchText -ValueColor "Green"
-Write-Item -Label "Activities Cache" -Value $ActivitiesText -ValueColor (if ($ActivitiesDb) { "Green" } else { "Red" })
+Write-Item -Label "Activities Cache" -Value $ActivitiesText -ValueColor $ActivitiesColor
 
 # SECTION: EVENT LOGS
 Write-Section -Title "EVENT LOGS & SECURITY AUDIT"
@@ -174,11 +183,10 @@ if ($null -ne $BinFolder) { $BinModified = $BinFolder.LastWriteTime.ToString("yy
 
 if ($BinCount -eq 0) {
     Write-Item -Label "Recycle Bin State" -Value "Empty / No historical records" -ValueColor "White"
-    Write-Item -Label "Last Modified Directory Time" -Value $BinModified -ValueColor "Yellow"
 } else {
     Write-Item -Label "Recycle Bin State" -Value "$BinCount Pending Items" -ValueColor "Yellow"
-    Write-Item -Label "Last Modified Directory Time" -Value $BinModified -ValueColor "Yellow"
 }
+Write-Item -Label "Last Modified Directory Time" -Value $BinModified -ValueColor "Yellow"
 
 Write-Host ""
 Write-Host "  System check complete." -ForegroundColor Cyan
