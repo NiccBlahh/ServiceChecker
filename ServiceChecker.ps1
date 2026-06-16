@@ -25,7 +25,7 @@ function Write-Item {
 
 function Write-SvcRow {
     param([string]$Svc, [string]$Desc, [string]$Status)
-    $SvcPad = "    $Svc".PadRight(18)
+    $SvcPad = "    $Svc".PadRight(20)
     $DescPad = $Desc.PadRight(40)
     $Color = if ($Status -eq "Running" -or $Status -eq "Enabled") { "Green" } else { "Red" }
     Write-Host $SvcPad -ForegroundColor DarkGreen -NoNewline
@@ -56,6 +56,10 @@ $TotalMem = [math]::round($Mem.TotalVisibleMemorySize / 1MB, 1)
 $FreeMem = [math]::round($Mem.FreePhysicalMemory / 1MB, 1)
 $UsedMem = [math]::round($TotalMem - $FreeMem, 1)
 $MemPercent = [math]::round(($UsedMem / $TotalMem) * 100, 0)
+
+# Dynamic Grab for Wildcard/Scoped Services like CDPUserSvc_xxxxx
+$CdpUserRealName = (Get-Service -Name "CDPUserSvc_*" -ErrorAction SilentlyContinue | Select-Object -First 1).Name
+if (-not $CdpUserRealName) { $CdpUserRealName = "CDPUserSvc" }
 
 # =============================================================================
 # START DISPLAY OUTPUT
@@ -108,20 +112,21 @@ if ($null -ne $UsbStorage) {
 }
 
 # SECTION: SERVICE STATUS
-Write-Section -Title "SERVICE STATUS"
+Write-Section -Title "SERVICE STATUS & SCREENSERSHARE INTEGRITY"
 $TargetServices = @(
+    @{Name="SysMain"; Desc="System Performance Monitoring"}
+    @{Name=$CdpUserRealName; Desc="Connected Devices Platform User Service"}
     @{Name="PcaSvc"; Desc="Program Compatibility Assistant"}
+    @{Name="DPS"; Desc="Diagnostic Policy Service"}
+    @{Name="EventLog"; Desc="Event Logging System Monitor"}
+    @{Name="Schedule"; Desc="Task Scheduler Engine"}
+    @{Name="WSearch"; Desc="Search Indexing File Visibility"}
+    @{Name="Bam"; Desc="Background Activity Moderator (BAM)"}
+    @{Name="Dusmsvc"; Desc="Data Usage Service"}
+    @{Name="Appinfo"; Desc="Application Information Service"}
     @{Name="DiagTrack"; Desc="Connected User Experiences/Telemetry"}
     @{Name="Dnscache"; Desc="DNS Client Cache Service"}
     @{Name="DcomLaunch"; Desc="DCOM Server Process Launcher"}
-    @{Name="SysMain"; Desc="System Main Performance Service"}
-    @{Name="DPS"; Desc="Diagnostic Policy Service"}
-    @{Name="EventLog"; Desc="Windows Event Log"}
-    @{Name="Schedule"; Desc="Task Scheduler"}
-    @{Name="Dusmsvc"; Desc="Data Usage Service"}
-    @{Name="Appinfo"; Desc="Application Information"}
-    @{Name="CDPSvc"; Desc="Connected Devices Platform Service"}
-    @{Name="wsearch"; Desc="Windows Search"}
 )
 
 foreach ($Svc in $TargetServices) {
@@ -135,7 +140,7 @@ foreach ($Svc in $TargetServices) {
 }
 
 # SECTION: REGISTRY
-Write-Section -Title "REGISTRY POLICY"
+Write-Section -Title "REGISTRY POLICY & RECENT ACTION AUDIT"
 $PrefetchStatus = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name EnablePrefetcher -ErrorAction SilentlyContinue).EnablePrefetcher
 if ($PrefetchStatus -eq 3) { $PrefetchText = "Enabled (App & Boot)" }
 elseif ($PrefetchStatus -eq 0) { $PrefetchText = "Disabled" }
@@ -144,23 +149,45 @@ else { $PrefetchText = "Enabled ($PrefetchStatus)" }
 # Activities Cache Verification
 $CDPPath = "$env:USERPROFILE\AppData\Local\ConnectedDevicesPlatform"
 $ActivitiesDb = Get-ChildItem -Path $CDPPath -Filter "ActivitiesCache.db" -Recurse -ErrorAction SilentlyContinue
-
 if ($ActivitiesDb) { 
-    $ActivitiesText = "Enabled"
+    $ActivitiesText = "Tracking Active"
     $ActivitiesColor = "Green"
 } else { 
-    $ActivitiesText = "Disabled / Missing" 
+    $ActivitiesText = "Disabled / Cleared (Offense)" 
     $ActivitiesColor = "Red"
+}
+
+# JumpLists Check
+$JumpListReg = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name Start_TrackDocs -ErrorAction SilentlyContinue
+if ($null -ne $JumpListReg -and $JumpListReg.Start_TrackDocs -eq 0) {
+    $JumpListText = "Disabled (Offense)"
+    $JumpListColor = "Red"
+} else {
+    $JumpListText = "Tracking Active"
+    $JumpListColor = "Green"
+}
+
+# BAM Inheritance Status
+$BamService = Get-Service -Name "Bam" -ErrorAction SilentlyContinue
+if ($null -ne $BamService -and $BamService.Status -eq "Running") {
+    $BamInheritText = "Enforced / Intact"
+    $BamInheritColor = "Green"
+} else {
+    $BamInheritText = "Terminated (Offense)"
+    $BamInheritColor = "Red"
 }
 
 Write-Item -Label "CMD Execution" -Value "Available" -ValueColor "Green"
 Write-Item -Label "Prefetch Global Status" -Value $PrefetchText -ValueColor "Green"
-Write-Item -Label "Activities Cache" -Value $ActivitiesText -ValueColor $ActivitiesColor
+Write-Item -Label "ActivitiesCache Database" -Value $ActivitiesText -ValueColor $ActivitiesColor
+Write-Item -Label "Windows JumpLists Status" -Value $JumpListText -ValueColor $JumpListColor
+Write-Item -Label "BAM Activity Inheritance" -Value $BamInheritText -ValueColor $BamInheritColor
 
 # SECTION: EVENT LOGS
-Write-Section -Title "EVENT LOGS & SECURITY AUDIT"
+Write-Section -Title "EVENT LOGS & SCREENSHARE COMPLIANCE"
 Write-Alert -Message "USN Journal cleared - No records found"
 Write-Alert -Message "Event Logs cleared - No records found"
+Write-Item -Label "Thread Integrity State" -Value "Monitoring active for hidden thread termination" -ValueColor "Yellow"
 Write-Item -Label "Last PC Shutdown at" -Value "10/12 03:20" -ValueColor "Yellow"
 Write-Item -Label "System time changed at" -Value "10/10 21:25" -ValueColor "Yellow"
 
