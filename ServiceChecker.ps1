@@ -67,7 +67,6 @@ $AllSystemServices = $null
 try {
     $AllSystemServices = [System.ServiceProcess.ServiceController]::GetServices()
 } catch {
-    # Bulletproof fallback using WMI if system types are stripped
     $AllSystemServices = Get-CimInstance Win32_Service | Select-Object @{N="ServiceName";E={$_.Name}}, @{N="Status";E={if($_.State -eq "Running"){"Running"}else{"Stopped"}}}
 }
 
@@ -144,11 +143,21 @@ $TargetServices = @(
 )
 
 foreach ($Svc in $TargetServices) {
-    $RealSvc = $AllSystemServices | Where-Object { $_.ServiceName -eq $Svc.Name }
-    if ($null -ne $RealSvc) {
-        $Status = $RealSvc.Status.ToString()
+    # Custom rule for BAM/DAM driver status lookup
+    if ($Svc.Name -eq "Bam") {
+        $BamRegistry = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bam" -Name Start -ErrorAction SilentlyContinue
+        if ($null -ne $BamRegistry -and ($BamRegistry.Start -eq 2 -or $BamRegistry.Start -eq 3)) {
+            $Status = "Running"
+        } else {
+            $Status = "Stopped"
+        }
     } else {
-        $Status = "Missing/Disabled"
+        $RealSvc = $AllSystemServices | Where-Object { $_.ServiceName -eq $Svc.Name }
+        if ($null -ne $RealSvc) {
+            $Status = $RealSvc.Status.ToString()
+        } else {
+            $Status = "Missing/Disabled"
+        }
     }
     
     $DisplayName = $Svc.Name
@@ -187,9 +196,9 @@ if ($null -ne $JumpListReg -and $JumpListReg.Start_TrackDocs -eq 0) {
     $JumpListColor = "Green"
 }
 
-# BAM Inheritance Status
-$BamService = $AllSystemServices | Where-Object { $_.ServiceName -eq "Bam" }
-if ($null -ne $BamService -and $BamService.Status -eq "Running") {
+# BAM Inheritance Status Check
+$BamDriverReg = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\bam" -Name Start -ErrorAction SilentlyContinue
+if ($null -ne $BamDriverReg -and $BamDriverReg.Start -eq 2) {
     $BamInheritText = "Enforced / Intact"
     $BamInheritColor = "Green"
 } else {
