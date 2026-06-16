@@ -115,13 +115,13 @@ if ($null -ne $UsbStorage) {
 Write-Section -Title "SERVICE STATUS & SCREENSERSHARE INTEGRITY"
 $TargetServices = @(
     @{Name="SysMain"; Desc="System Performance Monitoring"}
-    @{Name=$CdpUserRealName; Desc="Connected Devices Platform User Service"}
+    @{Name=$CdpUserRealName; Desc="Connected Devices Platform"}
     @{Name="PcaSvc"; Desc="Program Compatibility Assistant"}
     @{Name="DPS"; Desc="Diagnostic Policy Service"}
     @{Name="EventLog"; Desc="Event Logging System Monitor"}
     @{Name="Schedule"; Desc="Task Scheduler Engine"}
     @{Name="WSearch"; Desc="Search Indexing File Visibility"}
-    @{Name="Bam"; Desc="Background Activity Moderator (BAM)"}
+    @{Name="Bam"; Desc="Background Activity Moderator"}
     @{Name="Dusmsvc"; Desc="Data Usage Service"}
     @{Name="Appinfo"; Desc="Application Information Service"}
     @{Name="DiagTrack"; Desc="Connected User Experiences/Telemetry"}
@@ -136,7 +136,14 @@ foreach ($Svc in $TargetServices) {
     } else {
         $Status = "Missing/Disabled"
     }
-    Write-SvcRow -Svc $Svc.Name -Desc $Svc.Desc -Status $Status
+    
+    # Visual update: map internal service names to nicer looking UI strings
+    $DisplayName = $Svc.Name
+    if ($Svc.Name -eq "Schedule") { $DisplayName = "Scheduler" }
+    if ($Svc.Name -eq "WSearch") { $DisplayName = "SearchIndexer" }
+    if ($Svc.Name -eq "Bam") { $DisplayName = "BAM/DAM" }
+    
+    Write-SvcRow -Svc $DisplayName -Desc $Svc.Desc -Status $Status
 }
 
 # SECTION: REGISTRY
@@ -195,7 +202,21 @@ Write-Item -Label "System time changed at" -Value "10/10 21:25" -ValueColor "Yel
 Write-Section -Title "PREFETCH DIRECTORY STATUS"
 if (Test-Path "C:\Windows\Prefetch") {
     $PfCount = (Get-ChildItem -Path "C:\Windows\Prefetch" -Filter "*.pf" -ErrorAction SilentlyContinue).Count
+    
+    # Query for files matching hidden property types specifically
+    $HiddenPfCount = (Get-ChildItem -Path "C:\Windows\Prefetch" -Filter "*.pf" -Force -ErrorAction SilentlyContinue | Where-Object { $_.Attributes -match "Hidden" }).Count
+    if ($null -eq $HiddenPfCount) { $HiddenPfCount = 0 }
+    
+    if ($HiddenPfCount -gt 0) {
+        $HiddenValue = "$HiddenPfCount Warning Anomalies"
+        $HiddenColor = "Red"
+    } else {
+        $HiddenValue = "None Discovered"
+        $HiddenColor = "Green"
+    }
+    
     Write-Item -Label "Total Object Count" -Value "$PfCount Valid Hashes" -ValueColor "Cyan"
+    Write-Item -Label "Hidden Objects (.pf)" -Value $HiddenValue -ValueColor $HiddenColor
 } else {
     Write-Alert -Message "Prefetch directory inaccessible (Requires Admin)"
 }
