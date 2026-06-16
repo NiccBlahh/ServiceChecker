@@ -3,6 +3,11 @@
 
 Clear-Host
 
+# Force load the ServiceProcess assembly right at the start to prevent TypeNotFound errors
+try {
+    Add-Type -AssemblyName "System.ServiceProcess" -ErrorAction SilentlyContinue
+} catch {}
+
 # --- Helper Functions for Color Formatting ---
 function Write-Header {
     param([string]$Left)
@@ -27,7 +32,6 @@ function Write-SvcRow {
     param([string]$Svc, [string]$Desc, [string]$Status)
     $SvcPad = "    $Svc".PadRight(20)
     $DescPad = $Desc.PadRight(40)
-    # Color update: Running/Enabled turns Cyan, otherwise Red
     $Color = if ($Status -eq "Running" -or $Status -eq "Enabled") { "Cyan" } else { "Red" }
     Write-Host $SvcPad -ForegroundColor DarkGreen -NoNewline
     Write-Host "   " -NoNewline
@@ -58,8 +62,17 @@ $FreeMem = [math]::round($Mem.FreePhysicalMemory / 1MB, 1)
 $UsedMem = [math]::round($TotalMem - $FreeMem, 1)
 $MemPercent = [math]::round(($UsedMem / $TotalMem) * 100, 0)
 
-# Dynamic Grab for Wildcard/Scoped Services like CDPUserSvc_xxxxx via .NET Process controller
-$CdpUserRealName = ([System.ServiceProcess.ServiceController]::GetServices() | Where-Object { $_.ServiceName -like "CDPUserSvc_*" } | Select-Object -First 1).ServiceName
+# Safe service mapping to prevent type assembly locks
+$AllSystemServices = $null
+try {
+    $AllSystemServices = [System.ServiceProcess.ServiceController]::GetServices()
+} catch {
+    # Bulletproof fallback using WMI if system types are stripped
+    $AllSystemServices = Get-CimInstance Win32_Service | Select-Object @{N="ServiceName";E={$_.Name}}, @{N="Status";E={if($_.State -eq "Running"){"Running"}else{"Stopped"}}}
+}
+
+# Dynamic Grab for Wildcard/Scoped Services like CDPUserSvc_xxxxx
+$CdpUserRealName = ($AllSystemServices | Where-Object { $_.ServiceName -like "CDPUserSvc_*" } | Select-Object -First 1).ServiceName
 if (-not $CdpUserRealName) { $CdpUserRealName = "CDPUserSvc" }
 
 # =============================================================================
@@ -129,9 +142,6 @@ $TargetServices = @(
     @{Name="Dnscache"; Desc="DNS Client Cache Service"}
     @{Name="DcomLaunch"; Desc="DCOM Server Process Launcher"}
 )
-
-# Grab all active services via .NET engine to bypass common system pipeline bottlenecks
-$AllSystemServices = [System.ServiceProcess.ServiceController]::GetServices()
 
 foreach ($Svc in $TargetServices) {
     $RealSvc = $AllSystemServices | Where-Object { $_.ServiceName -eq $Svc.Name }
