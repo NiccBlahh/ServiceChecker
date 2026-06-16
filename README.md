@@ -17,6 +17,8 @@ A lightweight, zero-dependency PowerShell diagnostic engine designed for system 
 * 📁 **Prefetch Analytics:** Scans `C:\Windows\Prefetch` for hidden object attributes, count anomalies, and locked operational hashes.
 * 🗑️ **Storage Forensic Counters:** Recursively enumerates secure user folders inside `$Recycle.Bin` to calculate exact file overhead and true metadata mutation times.
 
+@praiselily , forge the code from that Service Checker
+
 ---
 
 ## 🖥️ Monitored Subsystems
@@ -43,9 +45,9 @@ The script evaluates the security and operational posture of these key Windows c
 ### Execution
 Open an elevated PowerShell console and paste the following command to download and execute the latest version directly from the repository in memory:
 
-```powershell```
+```powershell
 powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod '[https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1](https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1)')"
 
 
-@praiselily , forge the code from that Service Checker
+
 
