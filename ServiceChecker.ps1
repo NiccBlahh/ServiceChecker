@@ -10,10 +10,13 @@ try {
 
 # --- Helper Functions for Color Formatting ---
 function Write-Header {
-    param([string]$Left)
-    Write-Host " ┌────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-    Write-Host "   $Left" -ForegroundColor Cyan
-    Write-Host " └────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+    Write-Host " _____                _             _____ _                _             " -ForegroundColor Cyan
+    Write-Host "/  ___|              (_)           /  __ \ |              | |            " -ForegroundColor Cyan
+    Write-Host "\ \`--.  ___ _ ____   ___  ___ ___  | /  \/ |__   ___  ___| | _____ _ __ " -ForegroundColor Cyan
+    Write-Host " \`--. \/ _ \ '__\ \ / / |/ __/ _ \ | |   | '_ \ / _ \/ __| |/ / _ \ '__|" -ForegroundColor Cyan
+    Write-Host "/\__/ /  __/ |   \ V /| | (_|  __/ | \__/\ | | |  __/ (__|   <  __/ |   " -ForegroundColor Cyan
+    Write-Host "\____/ \___|_|    \_/ |_|\___\___|  \____/_| |_|\___|\___|_|\_\___|_|   " -ForegroundColor Cyan
+    Write-Host ""
 }
 
 function Write-Section {
@@ -36,15 +39,15 @@ function Write-SvcRow {
     $DescPad = $Desc.PadRight(40)
     $Color = if ($Status -eq "Running" -or $Status -eq "Enabled") { "Cyan" } else { "Red" }
     Write-Host $SvcPad -ForegroundColor DarkGreen -NoNewline
-    Write-Host "   " -NoNewline
+    Write-Host "    " -NoNewline
     Write-Host $DescPad -ForegroundColor White -NoNewline
-    Write-Host "   " -NoNewline
+    Write-Host "    " -NoNewline
     Write-Host $Status -ForegroundColor $Color
 }
 
 function Write-Alert {
     param([string]$Message)
-    Write-Host "    [!] $Message" -ForegroundColor Red
+    Write-Host "     [!] $Message" -ForegroundColor Red
 }
 
 # Track execution health
@@ -95,7 +98,7 @@ try {
 # =============================================================================
 # START DISPLAY OUTPUT
 # =============================================================================
-Write-Header -Left "ADVANCED SYSTEM DIAGNOSTIC PANEL (v3.0.0)"
+Write-Header
 Write-Host ""
 
 # SECTION: SYSTEM BOOT TIME
@@ -296,12 +299,14 @@ Write-Host "  System check complete." -ForegroundColor Cyan
 Write-Host ""
 
 # =============================================================================
-# EXCEPTION AND ERROR AUDIT (DYNAMIC REDIRECT TO @imnicc)
+# UNCONDITIONAL SUPPORT PANEL DIRECTION (ALWAYS DISPLAYED)
 # =============================================================================
+Write-Host " ┌────────────────────────────────────────────────────────┐" -ForegroundColor Red
+Write-Host "   @imnicc.dll for any errors! <3                  " -ForegroundColor Yellow
+Write-Host " └────────────────────────────────────────────────────────┘" -ForegroundColor Red
+
+# Output specific tracking exceptions only if any exist
 if ($ScriptErrors.Count -gt 0) {
-    Write-Host " ┌────────────────────────────────────────────────────────┐" -ForegroundColor Red
-    Write-Host "   Please contact support at: @imnicc                     " -ForegroundColor Yellow
-    Write-Host " └────────────────────────────────────────────────────────┘" -ForegroundColor Red
     foreach ($Err in $ScriptErrors) {
         Write-Host "    -> $Err" -ForegroundColor DarkGray
     }
