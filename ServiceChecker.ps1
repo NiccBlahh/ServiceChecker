@@ -2,7 +2,7 @@
 .SYNOPSIS
     Retro CLI Windows System Diagnostic Tool
 .DESCRIPTION
-    Consolidates advanced registry policies, live service states, 
+    Consolidates advanced registry policies, live service states (including DiagTrack), 
     prefetch analytics, event logs, and system hardware status.
 .NOTES
     Must be executed with elevated Administrator privileges.
@@ -168,6 +168,7 @@ $TargetServices = @(
     @{Name="Appinfo"; Desc="Application Information Service"}
     @{Name="DcomLaunch"; Desc="DCOM Server Process Launcher"}
     @{Name="PlugPlay"; Desc="Plug and Play Engine"}
+    @{Name="DiagTrack"; Desc="Telemetry / Diagnostic Tracking Service"}
 )
 
 foreach ($Svc in $TargetServices) {
@@ -278,7 +279,7 @@ Write-Host "  System diagnostics complete." -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host " ┌────────────────────────────────────────────────────────┐" -ForegroundColor Red
-Write-Host "  Reach out to @imnicc.dll for any errors! <3  " -ForegroundColor Yellow
+Write-Host "   Reach out to support desk if any warnings persist. <3  " -ForegroundColor Yellow
 Write-Host " └────────────────────────────────────────────────────────┘" -ForegroundColor Red
 
 if ($ScriptErrors.Count -gt 0) {
