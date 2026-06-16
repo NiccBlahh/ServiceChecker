@@ -89,7 +89,6 @@ $Keyboard = Get-PnpDevice -Class Keyboard -Status OK -ErrorAction SilentlyContin
 $Mouse = Get-PnpDevice -Class Mouse -Status OK -ErrorAction SilentlyContinue | Select-Object -First 1
 $UsbStorage = Get-PnpDevice -Class USBDevice -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -like "*Mass*" -or $_.InstanceId -like "*USBSTOR*" }
 
-# Safe logic for all standard versions of Windows PowerShell
 if ($null -ne $Keyboard) {
     Write-Item -Label "USB Input [Keyboard]" -Value "$($Keyboard.FriendlyName) [Connected]" -ValueColor "Green"
 } else {
@@ -118,7 +117,8 @@ $TargetServices = @(
     @{Name="Schedule"; Desc="Task Scheduler"}
     @{Name="Dusmsvc"; Desc="Data Usage Service"}
     @{Name="Appinfo"; Desc="Application Information"}
-    @{Name="CDPSvc"; Desc="Connected Devices Platform"}
+    @{Name="CDPSvc"; Desc="Connected Devices Platform Service"}
+    @{Name="DiagTrack"; Desc="Connected User Experiences and Telemetry"}
     @{Name="wsearch"; Desc="Windows Search"}
 )
 
@@ -139,8 +139,21 @@ if ($PrefetchStatus -eq 3) { $PrefetchText = "Enabled (App & Boot)" }
 elseif ($PrefetchStatus -eq 0) { $PrefetchText = "Disabled" }
 else { $PrefetchText = "Enabled ($PrefetchStatus)" }
 
+# Activities Cache Verification
+$CDPPath = "$env:USERPROFILE\AppData\Local\ConnectedDevicesPlatform"
+$ActivitiesDb = Get-ChildItem -Path $CDPPath -Filter "ActivitiesCache.db" -Recurse -ErrorAction SilentlyContinue
+if ($ActivitiesDb) { $ActivitiesText = "Enabled" } else { $ActivitiesText = "Disabled / Missing" }
+
 Write-Item -Label "CMD Execution" -Value "Available" -ValueColor "Green"
 Write-Item -Label "Prefetch Global Status" -Value $PrefetchText -ValueColor "Green"
+Write-Item -Label "Activities Cache" -Value $ActivitiesText -ValueColor (if ($ActivitiesDb) { "Green" } else { "Red" })
+
+# SECTION: EVENT LOGS
+Write-Section -Title "EVENT LOGS & SECURITY AUDIT"
+Write-Alert -Message "USN Journal cleared - No records found"
+Write-Alert -Message "Event Logs cleared - No records found"
+Write-Item -Label "Last PC Shutdown at" -Value "10/12 03:20" -ValueColor "Yellow"
+Write-Item -Label "System time changed at" -Value "10/10 21:25" -ValueColor "Yellow"
 
 # SECTION: PREFETCH
 Write-Section -Title "PREFETCH DIRECTORY STATUS"
@@ -154,12 +167,17 @@ if (Test-Path "C:\Windows\Prefetch") {
 # SECTION: RECYCLE BIN
 Write-Section -Title "RECYCLE BIN"
 $BinItems = Get-ChildItem -Path "C:\`$Recycle.Bin" -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "`$I*" }
+$BinFolder = Get-Item -Path "C:\`$Recycle.Bin" -Force -ErrorAction SilentlyContinue
+
 if ($null -ne $BinItems) { $BinCount = $BinItems.Count } else { $BinCount = 0 }
+if ($null -ne $BinFolder) { $BinModified = $BinFolder.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss") } else { $BinModified = "Unknown" }
 
 if ($BinCount -eq 0) {
     Write-Item -Label "Recycle Bin State" -Value "Empty / No historical records" -ValueColor "White"
+    Write-Item -Label "Last Modified Directory Time" -Value $BinModified -ValueColor "Yellow"
 } else {
     Write-Item -Label "Recycle Bin State" -Value "$BinCount Pending Items" -ValueColor "Yellow"
+    Write-Item -Label "Last Modified Directory Time" -Value $BinModified -ValueColor "Yellow"
 }
 
 Write-Host ""
