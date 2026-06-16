@@ -3,7 +3,7 @@
     Retro CLI Windows System Diagnostic Tool
 .DESCRIPTION
     Consolidates advanced registry policies, live service states (including DiagTrack), 
-    prefetch analytics, event logs, and system hardware status.
+    prefetch analytics, event logs, and an advanced Recycle Bin breakdown.
 .NOTES
     Must be executed with elevated Administrator privileges.
 #>
@@ -250,14 +250,37 @@ Write-Section -Title "STORAGE RECYCLE REPOSITORY"
 try {
     $recycleBinPath = "$env:SystemDrive" + '\$Recycle.Bin'
     if (Test-Path $recycleBinPath) {
-        $binItems = Get-ChildItem -Path $recycleBinPath -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "`$I*" }
-        $binCount = if ($null -ne $binItems) { $binItems.Count } else { 0 }
+        # Fetch root container structure
+        $binFolder = Get-Item -LiteralPath $recycleBinPath -Force -ErrorAction SilentlyContinue
+        $userFolders = Get-ChildItem -LiteralPath $recycleBinPath -Directory -Force -ErrorAction SilentlyContinue
         
-        if ($binCount -eq 0) {
-            Write-Item -Label "Recycle Bin State" -Value "Cleared / No Pending Objects" -ValueColor "Green"
-        } else {
-            Write-Item -Label "Recycle Bin State" -Value "$binCount Unpurged Cached Objects" -ValueColor "Yellow"
+        $allDeletedItems = @()
+        $latestModTime = if ($null -ne $binFolder) { $binFolder.LastWriteTime } else { [DateTime]::MinValue }
+        
+        if ($userFolders) {
+            foreach ($uf in $userFolders) {
+                if ($uf.LastWriteTime -gt $latestModTime) { $latestModTime = $uf.LastWriteTime }
+                
+                # Dynamic collection of structural indexes ($I* files represent raw deletion headers)
+                $userItems = Get-ChildItem -LiteralPath $uf.FullName -File -Force -ErrorAction SilentlyContinue
+                if ($userItems) {
+                    $allDeletedItems += $userItems
+                    $latestFile = $userItems | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                    if ($latestFile -and $latestFile.LastWriteTime -gt $latestModTime) {
+                        $latestModTime = $latestFile.LastWriteTime
+                    }
+                }
+            }
         }
+        
+        $totalItemsCount = $allDeletedItems.Count
+        $formattedTime = if ($latestModTime -eq [DateTime]::MinValue) { "Unknown" } else { $latestModTime.ToString("yyyy-MM-dd HH:mm:ss") }
+        
+        # Output clean metrics rows
+        Write-Item -Label "Total Objects Cached" -Value "$totalItemsCount Items Pending" -ValueColor (if ($totalItemsCount -gt 0) { "Yellow" } else { "Green" })
+        Write-Item -Label "Last Modified Directory Time" -Value $formattedTime -ValueColor "Yellow"
+    } else {
+        Write-Alert -Message "Recycle Bin storage structure was missing or unreadable."
     }
 } catch { $ScriptErrors += "Recycle Bin Object structural query failed" }
 
@@ -279,7 +302,7 @@ Write-Host "  System diagnostics complete." -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host " ┌────────────────────────────────────────────────────────┐" -ForegroundColor Red
-Write-Host "   Reach out to support desk if any warnings persist. <3  " -ForegroundColor Yellow
+Write-Host "   Reach out to support @imnicc.dll for any errors!. <3  " -ForegroundColor Yellow
 Write-Host " └────────────────────────────────────────────────────────┘" -ForegroundColor Red
 
 if ($ScriptErrors.Count -gt 0) {
