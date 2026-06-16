@@ -89,9 +89,24 @@ $Keyboard = Get-PnpDevice -Class Keyboard -Status OK -ErrorAction SilentlyContin
 $Mouse = Get-PnpDevice -Class Mouse -Status OK -ErrorAction SilentlyContinue | Select-Object -First 1
 $UsbStorage = Get-PnpDevice -Class USBDevice -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -like "*Mass*" -or $_.InstanceId -like "*USBSTOR*" }
 
-Write-Item -Label "USB Input [Keyboard]" -Value ($Keyboard ? "$($Keyboard.FriendlyName) [Connected]" : "None Detected") -ValueColor ($Keyboard ? "Green" : "Red")
-Write-Item -Label "USB Input [Mouse]" -Value ($Mouse ? "$($Mouse.FriendlyName) [Connected]" : "None Detected") -ValueColor ($Mouse ? "Green" : "Red")
-Write-Item -Label "Removable USB Mass Storage" -Value ($UsbStorage ? "$($UsbStorage.Count) Mounted Devices" : "No active mass storage detected") -ValueColor ($UsbStorage ? "Yellow" : "White")
+# Backward compatible display logic for standard Windows PowerShell
+if ($Keyboard) {
+    Write-Item -Label "USB Input [Keyboard]" -Value "$($Keyboard.FriendlyName) [Connected]" -ValueColor "Green"
+} else {
+    Write-Item -Label "USB Input [Keyboard]" -Value "None Detected" -ValueColor "Red"
+}
+
+if ($Mouse) {
+    Write-Item -Label "USB Input [Mouse]" -Value "$($Mouse.FriendlyName) [Connected]" -ValueColor "Green"
+} else {
+    Write-Item -Label "USB Input [Mouse]" -Value "None Detected" -ValueColor "Red"
+}
+
+if ($UsbStorage) {
+    Write-Item -Label "Removable USB Mass Storage" -Value "$($UsbStorage.Count) Mounted Devices" -ValueColor "Yellow"
+} else {
+    Write-Item -Label "Removable USB Mass Storage" -Value "No active mass storage detected" -ValueColor "White"
+}
 
 # SECTION: SERVICE STATUS
 Write-Section -Title "SERVICE STATUS"
@@ -109,7 +124,7 @@ $TargetServices = @(
 
 foreach ($Svc in $TargetServices) {
     $RealSvc = Get-Service -Name $Svc.Name -ErrorAction SilentlyContinue
-    $Status = $RealSvc ? $RealSvc.Status.ToString() : "Missing/Disabled"
+    $Status = if ($RealSvc) { $RealSvc.Status.ToString() } else { "Missing/Disabled" }
     Write-SvcRow -Svc $Svc.Name -Desc $Svc.Desc -Status $Status
 }
 
@@ -133,7 +148,8 @@ if (Test-Path "C:\Windows\Prefetch") {
 # SECTION: RECYCLE BIN
 Write-Section -Title "RECYCLE BIN"
 $BinItems = Get-ChildItem -Path "C:\`$Recycle.Bin" -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "`$I*" }
-$BinCount = $BinItems ? $BinItems.Count : 0
+if ($BinItems) { $BinCount = $BinItems.Count } else { $BinCount = 0 }
+
 if ($BinCount -eq 0) {
     Write-Item -Label "Recycle Bin State" -Value "Empty / No historical records" -ValueColor "White"
 } else {
