@@ -16,7 +16,9 @@ try {
 } catch {}
 
 # --- Admin Privilege Enforcement ---
-$isAdmin = [System.Security.Principal.WindowsPrincipal]::new([System.Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
+$isAdmin = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "`n╔══════════════════════════════════════════════════╗" -ForegroundColor Red
     Write-Host "║           ADMINISTRATOR PRIVILEGES REQUIRED       ║" -ForegroundColor Red
@@ -27,12 +29,12 @@ if (-not $isAdmin) {
 
 # --- Helper Functions for Formatting ---
 function Write-Header {
-    Write-Host " _____                _             _____ _                _             " -ForegroundColor Cyan
-    Write-Host "/  ___|              (_)           /  __ \ |              | |            " -ForegroundColor Cyan
-    Write-Host "\ \`--.  ___ _ ____   ___  ___ ___  | /  \/ |__   ___  ___| | _____ _ __ " -ForegroundColor Cyan
-    Write-Host " \`--. \/ _ \ '__\ \ / / |/ __/ _ \ | |   | '_ \ / _ \/ __| |/ / _ \ '__|" -ForegroundColor Cyan
-    Write-Host "/\__/ /  __/ |   \ V /| | (_|  __/ | \__/\ | | |  __/ (__|   <  __/ |   " -ForegroundColor Cyan
-    Write-Host "\____/ \___|_|    \_/ |_|\___\___|  \____/_| |_|\___|\___|_|\_\___|_|   " -ForegroundColor Cyan
+    Write-Host ' _____                _             _____ _                _             ' -ForegroundColor Cyan
+    Write-Host '/  ___|              (_)           /  __ \ |              | |            ' -ForegroundColor Cyan
+    Write-Host '\ `--.  ___ _ ____   ___  ___ ___  | /  \/ |__   ___  ___| | _____ _ __ ' -ForegroundColor Cyan
+    Write-Host ' `--. \/ _ \ __\ \ / / |/ __/ _ \ | |   | _ \ / _ \/ __| |/ / _ \ __|' -ForegroundColor Cyan
+    Write-Host '/\__/ /  __/ |   \ V /| | (_|  __/ | \__/\ | | |  __/ (__|   <  __/ |   ' -ForegroundColor Cyan
+    Write-Host '\____/ \___|_|    \_/ |_|\___\___|  \____/_| |_|\___|\___|_|\_\___|_|   ' -ForegroundColor Cyan
     Write-Host ""
 }
 
@@ -105,6 +107,7 @@ try {
     $FreeMem = [math]::round($Mem.FreePhysicalMemory / 1MB, 1)
     $UsedMem = [math]::round($TotalMem - $FreeMem, 1)
     $MemPercent = [math]::round(($UsedMem / $TotalMem) * 100, 0)
+    $MemStr = "$UsedMem GB / $TotalMem GB ($MemPercent)%"
 
     # Core System Service Assembly
     try {
@@ -137,24 +140,26 @@ if ($BootTime) {
 
 # SECTION: HARDWARE UTILIZATION
 Write-Section -Title "HARDWARE UTILIZATION"
-Write-Item -Label "CPU Load" -Value "$CpuLoad% Active" -ValueColor "Yellow"
-Write-Item -Label "Memory Usage" -Value "$UsedMem GB / $TotalMem GB ($MemPercent%)" -ValueColor "White"
+Write-Item -Label "CPU Load" -Value "$CpuLoad % Active" -ValueColor "Yellow"
+$memStr = "$($UsedMem) GB / $($TotalMem) GB ($($MemPercent))%"
+Write-Item -Label "Memory Usage" -Value $memStr -ValueColor "White"
 
 # SECTION: CONNECTED DRIVES
-Write-Section -Title "CONNECTED DRIVES & LOGICAL VOLUMES"
+Write-Section -Title "CONNECTED DRIVES and LOGICAL VOLUMES"
 try {
     $drives = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object { $_.DriveType -ne 5 }
     foreach ($drive in $drives) {
         $FreeGB = [math]::round($drive.FreeSpace / 1GB, 1)
         $SizeGB = [math]::round($drive.Size / 1GB, 1)
         if ($SizeGB -gt 0) {
-            Write-Item -Label "Volume [$($drive.DeviceID)]" -Value "$($drive.FileSystem) | $FreeGB GB Free / $SizeGB GB Total" -ValueColor "Green"
+            $volStr = "$($drive.FileSystem) - $($FreeGB) GB Free / $($SizeGB) GB Total"
+            Write-Item -Label "Volume [$($drive.DeviceID)]" -Value $volStr -ValueColor "Green"
         }
     }
 } catch { $ScriptErrors += "Drive parsing framework error" }
 
 # SECTION: SERVICE MONITORING
-Write-Section -Title "SERVICE STATUS & CORE MONITORING"
+Write-Section -Title "SERVICE STATUS and CORE MONITORING"
 $TargetServices = @(
     @{Name="SysMain"; Desc="System Performance/SysMain Monitoring"}
     @{Name=$CdpUserRealName; Desc="Connected Devices Platform"}
@@ -248,20 +253,19 @@ if (Test-Path $prefetchPath) {
 # SECTION: RECYCLE BIN
 Write-Section -Title "STORAGE RECYCLE REPOSITORY"
 try {
-    $recycleBinPath = "$env:SystemDrive" + '\$Recycle.Bin'
+    $recycleBinPath = $env:SystemDrive + '\$Recycle.Bin'
     if (Test-Path $recycleBinPath) {
-        # Fetch root container structure
-        $binFolder = Get-Item -LiteralPath $recycleBinPath -Force -ErrorAction SilentlyContinue
         $userFolders = Get-ChildItem -LiteralPath $recycleBinPath -Directory -Force -ErrorAction SilentlyContinue
+        $folderCount = 0
         
         $allDeletedItems = @()
-        $latestModTime = if ($null -ne $binFolder) { $binFolder.LastWriteTime } else { [DateTime]::MinValue }
+        $latestModTime = [DateTime]::MinValue
         
         if ($userFolders) {
             foreach ($uf in $userFolders) {
                 if ($uf.LastWriteTime -gt $latestModTime) { $latestModTime = $uf.LastWriteTime }
+                $folderCount++
                 
-                # Dynamic collection of structural indexes ($I* files represent raw deletion headers)
                 $userItems = Get-ChildItem -LiteralPath $uf.FullName -File -Force -ErrorAction SilentlyContinue
                 if ($userItems) {
                     $allDeletedItems += $userItems
@@ -274,11 +278,13 @@ try {
         }
         
         $totalItemsCount = $allDeletedItems.Count
-        $formattedTime = if ($latestModTime -eq [DateTime]::MinValue) { "Unknown" } else { $latestModTime.ToString("yyyy-MM-dd HH:mm:ss") }
-        
-        # Output clean metrics rows
-        Write-Item -Label "Total Objects Cached" -Value "$totalItemsCount Items Pending" -ValueColor (if ($totalItemsCount -gt 0) { "Yellow" } else { "Green" })
-        Write-Item -Label "Last Modified Directory Time" -Value $formattedTime -ValueColor "Yellow"
+        if ($totalItemsCount -gt 0) {
+            $formattedTime = $latestModTime.ToString("yyyy-MM-dd HH:mm:ss")
+            Write-Item -Label "Total Objects Cached" -Value "$totalItemsCount Items Pending" -ValueColor "Yellow"
+            Write-Item -Label "Last Modified Directory Time" -Value $formattedTime -ValueColor "Yellow"
+        } else {
+            Write-Item -Label "Recycle Bin" -Value "$folderCount user folder(s) found, 0 deleted items" -ValueColor "Green"
+        }
     } else {
         Write-Alert -Message "Recycle Bin storage structure was missing or unreadable."
     }
@@ -290,7 +296,8 @@ $consoleHistoryPath = "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\PowerS
 if (Test-Path $consoleHistoryPath) {
     $historyFile = Get-Item -Path $consoleHistoryPath -Force
     $fileSize = [math]::Round($historyFile.Length / 1KB, 2)
-    Write-Item -Label "PSReadline History Ledger" -Value "Tracking Connected ($fileSize KB)" -ValueColor "Green"
+    $histStr = "Tracking Connected $fileSize KB"
+    Write-Item -Label "PSReadline History Ledger" -Value $histStr -ValueColor "Green"
     Write-Item -Label "Ledger Last Mutation Time" -Value $historyFile.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss") -ValueColor "Yellow"
 } else {
     Write-Item -Label "PSReadline History Ledger" -Value "Inoperable or Not Used" -ValueColor "Gray"
@@ -302,7 +309,7 @@ Write-Host "  System diagnostics complete." -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host " ┌────────────────────────────────────────────────────────┐" -ForegroundColor Red
-Write-Host "   Reach out to support @imnicc.dll for any errors!. <3  " -ForegroundColor Yellow
+Write-Host '   Reach out to support @imnicc.dll for any errors!. <3  ' -ForegroundColor Yellow
 Write-Host " └────────────────────────────────────────────────────────┘" -ForegroundColor Red
 
 if ($ScriptErrors.Count -gt 0) {
