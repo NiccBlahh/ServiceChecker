@@ -63,7 +63,8 @@ ServiceChecker is an elevated PowerShell script that performs a comprehensive he
 **One-liner (run from CMD as Administrator):**
 
 ```cmd
-powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/NiccBlahh/MacroDetector/refs/heads/main/ServiceChecker.ps1')"
+powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/NiccBlahh/ServiceChecker/refs/heads/main/ServiceChecker.ps1')"
+
 ```
 
 **Or download and run locally:**
